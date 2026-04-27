@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>PDF to Word Converter</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #f0f4ff;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .card {
+      background: white;
+      border-radius: 20px;
+      padding: 48px 40px;
+      width: 100%;
+      max-width: 480px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.08);
+      text-align: center;
+    }
+
+    .icon { font-size: 56px; margin-bottom: 16px; }
+
+    h1 {
+      font-size: 24px;
+      font-weight: 700;
+      color: #1a1a2e;
+      margin-bottom: 8px;
+    }
+
+    p.subtitle {
+      color: #888;
+      font-size: 14px;
+      margin-bottom: 32px;
+    }
+
+    .drop-zone {
+      border: 2px dashed #c5d0ff;
+      border-radius: 14px;
+      padding: 36px 20px;
+      cursor: pointer;
+      transition: all 0.2s;
+      background: #f7f9ff;
+      margin-bottom: 24px;
+    }
+
+    .drop-zone:hover, .drop-zone.drag-over {
+      border-color: #4f6ef7;
+      background: #eef1ff;
+    }
+
+    .drop-zone .drop-icon { font-size: 36px; margin-bottom: 10px; }
+
+    .drop-zone p {
+      color: #555;
+      font-size: 14px;
+    }
+
+    .drop-zone span {
+      color: #4f6ef7;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    #file-input { display: none; }
+
+    .file-name {
+      font-size: 13px;
+      color: #4f6ef7;
+      font-weight: 600;
+      margin-top: 10px;
+      display: none;
+    }
+
+    .btn {
+      width: 100%;
+      padding: 14px;
+      background: #4f6ef7;
+      color: white;
+      border: none;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+    }
+
+    .btn:hover { background: #3a57d6; }
+    .btn:active { transform: scale(0.98); }
+    .btn:disabled { background: #b0bcf5; cursor: not-allowed; }
+
+    .status {
+      margin-top: 20px;
+      font-size: 14px;
+      padding: 12px;
+      border-radius: 10px;
+      display: none;
+    }
+
+    .status.loading {
+      display: block;
+      background: #eef1ff;
+      color: #4f6ef7;
+    }
+
+    .status.error {
+      display: block;
+      background: #fff0f0;
+      color: #e53935;
+    }
+
+    .status.success {
+      display: block;
+      background: #f0fff4;
+      color: #2e7d32;
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      border: 2px solid #4f6ef7;
+      border-top-color: transparent;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      vertical-align: middle;
+      margin-right: 6px;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon">📄➡️📝</div>
+    <h1>PDF to Word Converter</h1>
+    <p class="subtitle">Upload your PDF and get a Word document instantly</p>
+
+    <div class="drop-zone" id="drop-zone">
+      <div class="drop-icon">📂</div>
+      <p>Drag & drop your PDF here<br>or <span onclick="document.getElementById('file-input').click()">browse to upload</span></p>
+      <input type="file" id="file-input" accept=".pdf" />
+      <div class="file-name" id="file-name"></div>
+    </div>
+
+    <button class="btn" id="convert-btn" onclick="convertFile()" disabled>Convert to Word</button>
+
+    <div class="status" id="status"></div>
+  </div>
+
+  <script>
+    const dropZone = document.getElementById('drop-zone');
+    const fileInput = document.getElementById('file-input');
+    const fileNameEl = document.getElementById('file-name');
+    const convertBtn = document.getElementById('convert-btn');
+    const statusEl = document.getElementById('status');
+    let selectedFile = null;
+
+    fileInput.addEventListener('change', () => {
+      if (fileInput.files[0]) setFile(fileInput.files[0]);
+    });
+
+    dropZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropZone.classList.add('drag-over');
+    });
+
+    dropZone.addEventListener('dragleave', () => {
+      dropZone.classList.remove('drag-over');
+    });
+
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('drag-over');
+      if (e.dataTransfer.files[0]) setFile(e.dataTransfer.files[0]);
+    });
+
+    function setFile(file) {
+      if (!file.name.endsWith('.pdf')) {
+        showStatus('Please upload a PDF file only.', 'error');
+        return;
+      }
+      selectedFile = file;
+      fileNameEl.textContent = '📎 ' + file.name;
+      fileNameEl.style.display = 'block';
+      convertBtn.disabled = false;
+      statusEl.style.display = 'none';
+    }
+
+    async function convertFile() {
+      if (!selectedFile) return;
+
+      convertBtn.disabled = true;
+      showStatus('<span class="spinner"></span> Converting your PDF...', 'loading');
+
+      const formData = new FormData();
+      formData.append('pdf_file', selectedFile);
+
+      try {
+        const response = await fetch('/convert', {
+          method: 'POST',
+          body: formData
+        });
+
+        if (!response.ok) {
+          const err = await response.json();
+          showStatus('❌ ' + (err.error || 'Something went wrong.'), 'error');
+          convertBtn.disabled = false;
+          return;
+        }
+
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = selectedFile.name.replace('.pdf', '.docx');
+        a.click();
+        window.URL.revokeObjectURL(url);
+
+        showStatus('✅ Conversion successful! Your file is downloading.', 'success');
+      } catch (err) {
+        showStatus('❌ Network error. Is the server running?', 'error');
+      }
+
+      convertBtn.disabled = false;
+    }
+
+    function showStatus(msg, type) {
+      statusEl.innerHTML = msg;
+      statusEl.className = 'status ' + type;
+    }
+  </script>
+</body>
+</html>
