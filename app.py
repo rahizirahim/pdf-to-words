@@ -16,7 +16,8 @@ os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 
 # Path untuk Tesseract dan Poppler
 pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
-POPPLER_PATH = r'C:\poppler\Library\bin'
+import platform
+POPPLER_PATH = r'C:\poppler\Library\bin' if platform.system() == 'Windows' else None
 
 def is_scanned_pdf(pdf_path):
     try:
@@ -64,7 +65,7 @@ def convert():
             cv.close()
         else:
             # Scanned PDF — guna OCR
-            images = convert_from_path(pdf_path, poppler_path=POPPLER_PATH)
+            images = convert_from_path(pdf_path, poppler_path=POPPLER_PATH) if POPPLER_PATH else convert_from_path(pdf_path)
             doc = Document()
             for img in images:
                 text = pytesseract.image_to_string(img)
