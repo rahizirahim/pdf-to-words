@@ -74,6 +74,9 @@ def convert():
             doc.save(docx_path)
 
     except Exception as e:
+        import traceback
+        error_details = traceback.format_exc()
+        print("ERROR:", error_details)
         return jsonify({'error': f'Conversion failed: {str(e)}'}), 500
     finally:
         if os.path.exists(pdf_path):
