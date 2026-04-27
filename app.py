@@ -1,9 +1,6 @@
 from flask import Flask, render_template, request, send_file, jsonify
 import os
 from pdf2docx import Converter
-from pdf2image import convert_from_path
-import pytesseract
-from docx import Document
 import uuid
 
 app = Flask(__name__)
@@ -13,19 +10,6 @@ OUTPUT_FOLDER = 'outputs'
 
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)
-
-# Path untuk Tesseract dan Poppler
-pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
-import platform
-POPPLER_PATH = r'C:\poppler\Library\bin' if platform.system() == 'Windows' else None
-
-def is_scanned_pdf(pdf_path):
-    try:
-        cv = Converter(pdf_path)
-        cv.close()
-        return False
-    except:
-        return True
 
 @app.route('/')
 def index():
@@ -52,31 +36,10 @@ def convert():
     file.save(pdf_path)
 
     try:
-        # Check dulu ada text ke tak dalam PDF
-        import fitz
-        pdf_doc = fitz.open(pdf_path)
-        has_text = any(page.get_text().strip() for page in pdf_doc)
-        pdf_doc.close()
-
-        if has_text:
-            # PDF biasa — guna pdf2docx
-            cv = Converter(pdf_path)
-            cv.convert(docx_path)
-            cv.close()
-        else:
-            # Scanned PDF — guna OCR
-            images = convert_from_path(pdf_path, poppler_path=POPPLER_PATH) if POPPLER_PATH else convert_from_path(pdf_path)
-            doc = Document()
-            for img in images:
-                text = pytesseract.image_to_string(img)
-                doc.add_paragraph(text)
-                doc.add_page_break()
-            doc.save(docx_path)
-
+        cv = Converter(pdf_path)
+        cv.convert(docx_path)
+        cv.close()
     except Exception as e:
-        import traceback
-        error_details = traceback.format_exc()
-        print("ERROR:", error_details)
         return jsonify({'error': f'Conversion failed: {str(e)}'}), 500
     finally:
         if os.path.exists(pdf_path):
